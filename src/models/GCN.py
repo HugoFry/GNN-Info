@@ -16,6 +16,7 @@ class GCN_config():
     optimizer: str = 'Adam'
     head: str = 'linear'
     head_output_dimension: int = 10
+    activation_function: str = "relu"
         
 
 class GCN(nn.Module):
@@ -26,9 +27,14 @@ class GCN(nn.Module):
         for i in range(len(config.dimensions)-1):
             layers.append(GCNConv(config.dimensions[i], config.dimensions[i+1]))
             
-            if i < len(config.dimensions) - 2:  # No activation/batchnorm/dropout on the final layer
+            if config.activation_function == "relu":
                 layers.append(nn.ReLu())
-                layers.append(nn.Dropout(config.dropout_prob))
+            elif config.activation_function == "sigmoid":
+                layers.append(nn.Sigmoid())
+            else:
+                raise Exception(f"Unrecognised activation function {config.activation_function}.")
+            
+            layers.append(nn.Dropout(config.dropout_prob))
                 
         self.layers = nn.Sequential(*layers)
         if self.head == "linear":
