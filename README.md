@@ -1,1 +1,1 @@
-# GNN-Interp
+# GNN-Info
