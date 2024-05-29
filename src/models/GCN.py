@@ -16,8 +16,9 @@ class GCN_config():
     optimizer: str = 'Adam'
     head: str = 'linear'
     head_output_dimension: int = 10
+        
 
-class GCN(torch.nn.Module):
+class GCN(nn.Module):
     def __init__(self, config: GCN_config):
         super(GCN, self).__init__()
         self.config = config
@@ -38,7 +39,12 @@ class GCN(torch.nn.Module):
         if config.optimizer == "Adam":
             self.optimizer = torch.optim.Adam(self.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)
 
-    def forward(self, x): # This won't work. Need to rewrite it. (Include edge index eg the adjacency matrix)
-        x = self.layers(x)
+    def forward(self, x, edge_index):
+        for layer in self.layers:
+            if isinstance(layer, GCNConv): # Check whether we need to pass in the adjacency matrix.
+                x = layer(x, edge_index)
+            else:
+                x = layer(x)
+                
         x = self.head(x)
         return x
