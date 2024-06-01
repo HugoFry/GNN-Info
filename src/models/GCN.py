@@ -39,11 +39,16 @@ class GCN(nn.Module):
         
         if self.head == "linear":
             self.head = Linear(config.dimesions[-1], config.head_output_dimension)
+            #Initialise the weights and biases.
+            nn.init.xavier_uniform_(self.head.weight)
+            nn.init.zeros_(self.head.bias)
         else:
             self.head = nn.Identity()
             
         if config.optimizer == "Adam":
             self.optimizer = torch.optim.Adam(self.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)
+        else:
+            raise Exception(f'The optimizer {config.optimizer} is not recognised')
 
     def forward(self, x, edge_index):
         x = self.layers(x, edge_index)
@@ -56,13 +61,19 @@ class GCN(nn.Module):
         """
         # Store the activations as a list of tensors.
         cached_activations = [None for _ in len(self.layers)]
+        
+        #If there is a non-trivial head, append an additional element to the list
+        if self.config.head is not None:
+            cached_activations.append(None)
+            
         with self.hooked_model(cached_activations):
             output = self.forward(*args, **kwargs)
+            
         return output, cached_activations
     
     def create_hook_function(self, cached_activations: list, layer: int):
         def hook_function(model, input, output):
-            cached_activations[layer] = output
+            cached_activations[layer] = output.detach().clone()
         return hook_function
     
     @contextmanager
@@ -74,6 +85,12 @@ class GCN(nn.Module):
                 hook_fn = self.create_hook_function(cached_activations, layer)
                 handle = module.register_forward_hook(hook_fn)
                 handles.append(handle)
+                
+            if self.config.head is not None:
+                hook_fn = self.create_hook_function(cached_activations, -1)
+                handle = self.head.register_forward_hook(hook_fn)
+                handles.append(handle)
+                
             yield
         finally:
             #Remove the hooks here.

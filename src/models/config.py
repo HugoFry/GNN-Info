@@ -17,3 +17,8 @@ class GNN_config(ABC):
     head: str = 'linear'
     head_output_dimension: int = 10 # Note this is the output dimension of the GNN only when head is not None, otherwise it is dimensions[-1]
     activation_function: str = "relu"
+    
+    def __repr__(self):
+        attrs = (f"{k} = {v!r}" for k, v in self.__dict__.items())
+        attr_str = "\n".join(attrs)
+        return f"GNN configuration:\n\n{attr_str}"
