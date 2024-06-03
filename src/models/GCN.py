@@ -17,13 +17,34 @@ class GCN_layer(nn.Module):
             self.activation_funciton = nn.Sigmoid()
         else:
             raise Exception(f"Unrecognised activation function {config.activation_function}.")
-            
-        self.dropout = nn.Dropout(config.dropout_prob)
         
     def forward(self, x, edge_index):
         x = self.GCN(x, edge_index)
         x = self.activation_funciton(x)
-        x = self.dropout(x)
+        return x
+    
+class linear_layer(nn.Module):
+    def __init__(self,  config: GNN_config, input_dimension: int, output_dimension: int):
+        super(GCN_layer, self).__init__()
+        self.linear = Linear(input_dimension, output_dimension)
+        nn.init.xavier_uniform_(self.linear.weight)
+        nn.init.zeros_(self.linear.bias)
+        
+    def forward(self, x):
+        x = self.Linear(x)
+        return x
+    
+class softmax_layer(nn.Module):
+    def __init__(self,  config: GNN_config, input_dimension: int, output_dimension: int):
+        super(GCN_layer, self).__init__()
+        self.linear = Linear(input_dimension, output_dimension)
+        nn.init.xavier_uniform_(self.linear.weight)
+        nn.init.zeros_(self.linear.bias)
+        self.softmax = nn.Softmax(dim = -1)
+        
+    def forward(self, x):
+        x = self.Linear(x)
+        x = self.softmax(x)
         return x
         
 
@@ -37,13 +58,12 @@ class GCN(nn.Module):
             layers.append(GCN_layer(config, config.dimensions[i], config.dimensions[i+1]))    
         self.layers = nn.Sequential(*layers)
         
-        if self.head == "linear":
-            self.head = Linear(config.dimesions[-1], config.head_output_dimension)
-            #Initialise the weights and biases.
-            nn.init.xavier_uniform_(self.head.weight)
-            nn.init.zeros_(self.head.bias)
+        if config.head == "linear":
+            self.head = linear_layer(config, config.dimesions[-1], config.head_output_dimension)
+        elif config.head == "softmax":
+            self.head = softmax_layer(config, config.dimensions[i], config.dimensions[i+1])
         else:
-            self.head = nn.Identity()
+            config.head = nn.Identity()
             
         if config.optimizer == "Adam":
             self.optimizer = torch.optim.Adam(self.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)
