@@ -65,10 +65,17 @@ class GCN(nn.Module):
         else:
             config.head = nn.Identity()
             
-        if config.optimizer == "Adam":
+        if config.optimizer == "adam":
             self.optimizer = torch.optim.Adam(self.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)
         else:
             raise Exception(f'The optimizer {config.optimizer} is not recognised')
+        
+        if config.loss_function=="log-cosh":
+            self.loss_function = None
+        elif config.loss_function=="corss-entropy":
+            self.loss_function = None
+        else:
+            raise Exception(f"The loss function {config.loss_function} is not recognised")
 
     def forward(self, x, edge_index):
         x = self.layers(x, edge_index)
@@ -116,4 +123,5 @@ class GCN(nn.Module):
             #Remove the hooks here.
             for handle in handles:
                 handle.detach()
+                
     

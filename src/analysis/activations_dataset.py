@@ -9,8 +9,7 @@ class activations_dataset(Dataset):
         current_dataset_size = 0
         
         self.dataset_size = dataset_size
-        self.inputs = []
-        self.labels = []
+        self.data = []
         
         while current_dataset_size < dataset_size:
             try:
@@ -18,51 +17,47 @@ class activations_dataset(Dataset):
             except StopIteration:
                 GNN_iterable_dataloader = iter(DataLoader(GNN_dataset, batch_size=GNN_model.config.batch_size, shuffle=True))
                 batch_data = next(GNN_iterable_dataloader)
+            
             _, cached_activations = GNN_model.run_with_cache(batch_data.x)
             
-            #####
-            #This won't worl as the x/y data has a different shape.
-            #This also is rubsih - I need to split the tensors along the batch dimension.
-            #Also put this code into a seperate method? some data processing method
-            #####
-            concatinaed_inputs = []
-            concatinaed_labels = []
-            for layer_activation in cached_activations:
-                concatinaed_inputs.append(torch.cat((batch_data.x, layer_activation), dim = -1))
-                concatinaed_labels.append(torch.cat((batch_data.y, layer_activation), dim = -1))
+            unbatched_data, batch_length = self.process_data(batch_data.x, cached_activations, batch_data.y)
             
+            self.data += unbatched_data
             
-            current_dataset_szie += 1
+            current_dataset_size += batch_length
             
-            #Output is a list of torch tensors, without gradients.
-            #Need to check how many nodes of data there are. Currently assuming there's one node... EG
-            ######
-            #THIS IS CURRENTLY BATCHED!!
-            ######
-            
-        self.inputs = self.inputs[:dataset_size]
-        self.hidden_activations = self.hidden_activations[:dataset_size]
-        self.labels = self.labels[:dataset_size]
+        self.data = self.data[:dataset_size]
 
     def __len__(self):
         return self.dataset_size
 
     def __getitem__(self, index):
-        return {'input': self.inputs[index], 'label': self.labels[index]}
+        """
+        Returns a dictionary:
+            Keys: integers indexing the layer.
+                Index 0 is the input. 
+                Index 1 is the 1st layer.
+                Index 2 is the 2nd layer...
+                Index -1 is the label. 
+            Values: torch tensors of the GNN model activations.
+        """
+        return self.data[index]
     
-    def collate_fn(self, batch):
-        # Initialize the batched data structure
-        batched_data = {'input': [], 'label': []}
-        for items in zip(*[sample['input'] for sample in batch]):
-                batched_data['input'].append(torch.stack(items))
-                
-        for items in zip(*[sample['label'] for sample in batch]):
-                batched_data['label'].append(torch.stack(items))
-                
-        return batched_data
+    def process_data(self, input_batch, list_of_hidden_batch, label_batch):
+        split_input = torch.split(input_batch, 1, dim = 0)
+        split_input = [input.squeeze(0) for input in split_input]
+        
+        batch_length = len(split_input)
+        
+        split_label = torch.split(label_batch, 1, dim = 0)
+        split_label = [label.squeeze(0) for label in split_label]
+        
+        list_of_split_hidden = [torch.split(hidden_batch, 1, dim = 0) for hidden_batch in list_of_hidden_batch]
+        list_of_split_hidden = [[hidden.squeeze(0) for hidden in split_hidden] for split_hidden in list_of_split_hidden]
+        
+        unbatched_data = [split_input] + list_of_split_hidden + [split_label]
+        unbatched_data = [list(item) for item in zip(*unbatched_data)] #Convert data from layers x batch, to batch x layers
+        unbatched_data = [{layer: data for layer, data in enumerate(unbatched_data[index])} for index in batch_length]
+        
+        return unbatched_data, batch_length
     
-"""
-Need to change to get the following:
-    Return type a dictionary with keys 'input' and 'label'.
-    the values of the dictionary should be a list (indexing different layers) of torch tensors (represnting the concatination of two tensors)
-"""

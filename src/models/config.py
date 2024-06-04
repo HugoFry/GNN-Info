@@ -21,3 +21,10 @@ class GNN_config(ABC):
         attrs = (f"{k} = {v!r}" for k, v in self.__dict__.items())
         attr_str = "\n".join(attrs)
         return f"GNN configuration:\n\n{attr_str}"
+    
+    def __post_init__(self):
+        loss_functions = {
+            'QM9': 'log-cosh',
+            'reddit': 'cross-entropy',
+            }
+        self.loss_function = loss_functions[self.dataset]

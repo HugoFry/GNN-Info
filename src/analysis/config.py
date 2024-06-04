@@ -71,4 +71,4 @@ class MINE_config():
             )
             individual_configs_label_MI.append(label_config)
             
-            return {"input config": individual_configs_input_MI, "label config": individual_configs_label_MI}
+            return {"input": individual_configs_input_MI, "label": individual_configs_label_MI}
